@@ -6,9 +6,7 @@
 #ifndef JSON_H
 #define JSON_H
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
+#include <linux/types.h>
 
 enum json_type { 
     JSON_NULL,
