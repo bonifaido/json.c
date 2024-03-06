@@ -172,9 +172,6 @@ struct json json_object_getn(struct json json, const char *key, size_t len);
 struct json json_get(const char *json_str, const char *path);
 struct json json_getn(const char *json_str, size_t len, const char *path);
 
-// json_double returns a json's double value.
-double json_double(struct json json);
-
 // json_int returns a json's int value.
 int json_int(struct json json);
 

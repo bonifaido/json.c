@@ -3,9 +3,15 @@
 // Copyright 2023 Joshua J Baker. All rights reserved.
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
-#include <limits.h>
-#include <stdlib.h>
-#include <string.h>
+
+#include <linux/slab.h>
+#include <linux/string.h>
+
+#define INT64_MIN S64_MIN
+#define INT64_MAX S64_MAX
+
+#define UINT64_MIN U64_MIN
+#define UINT64_MAX U64_MAX
 
 #ifndef JSON_STATIC
 #include "json.h"
@@ -777,80 +783,34 @@ JSON_EXTERN struct json json_object_get(struct json json, const char *key) {
     return json_object_getn(json, key, key?strlen(key):0);
 }
 
-static double stod(const uint8_t *str, size_t len, char *buf) {
-    memcpy(buf, str, len);
-    buf[len] = '\0';
-    char *ptr;
-    double x = strtod(buf, &ptr);
-    return (size_t)(ptr-buf) == len ? x : 0;
-}
-
-static double parse_double_big(const uint8_t *str, size_t len) {
-    char buf[512];
-    if (len >= sizeof(buf)) return 0;
-    return stod(str, len, buf);
-}
-
-static double parse_double(const uint8_t *str, size_t len) {
-    char buf[32];
-    if (len >= sizeof(buf)) return parse_double_big(str, len);
-    return stod(str, len, buf);
-}
-
 static int64_t parse_int64(const uint8_t *s, size_t len) {
     char buf[21];
-    double y;
     if (len == 0) return 0;
     if (len < sizeof(buf) && sizeof(long long) == sizeof(int64_t)) {
         memcpy(buf, s, len);
         buf[len] = '\0';
-        char *ptr = NULL;
-        int64_t x = strtoll(buf, &ptr, 10);
-        if ((size_t)(ptr-buf) == len) return x;
-        y = strtod(buf, &ptr);
-        if ((size_t)(ptr-buf) == len) goto clamp;
+        int64_t x = 0;
+        int retval = kstrtos64(buf, 10, &x);
+        if (retval == 0) return INT64_MIN;
+        return x;
     }
-    y = parse_double(s, len);
-clamp:
-    if (y < (double)INT64_MIN) return INT64_MIN;
-    if (y > (double)INT64_MAX) return INT64_MAX;
-    return y;
+    return INT64_MIN;
 }
 
 static uint64_t parse_uint64(const uint8_t *s, size_t len) {
     char buf[21];
-    double y;
     if (len == 0) return 0;
     if (len < sizeof(buf) && sizeof(long long) == sizeof(uint64_t) &&
         s[0] != '-')
     {
         memcpy(buf, s, len);
         buf[len] = '\0';
-        char *ptr = NULL;
-        uint64_t x = strtoull(buf, &ptr, 10);
-        if ((size_t)(ptr-buf) == len) return x;
-        y = strtod(buf, &ptr);
-        if ((size_t)(ptr-buf) == len) goto clamp;
+        uint64_t x = 0;
+        int retval = kstrtou64(buf, 10, &x);
+        if (retval == 0) return UINT64_MAX;
+        return x;
     }
-    y = parse_double(s, len);
-clamp:
-    if (y < 0) return 0;
-    if (y > (double)UINT64_MAX) return UINT64_MAX;
-    return y;
-}
-
-JSON_EXTERN double json_double(struct json json) {
-    switch (json_type(json)) {
-    case JSON_TRUE:
-        return 1;
-    case JSON_STRING:
-        if (jlen(json) < 3) return 0.0;
-        return parse_double(jraw(json)+1, jlen(json)-2);
-    case JSON_NUMBER:
-        return parse_double(jraw(json), jlen(json));
-    default:
-        return 0.0;
-    }
+    return UINT64_MAX;
 }
 
 JSON_EXTERN int64_t json_int64(struct json json) {
@@ -893,7 +853,7 @@ JSON_EXTERN bool json_bool(struct json json) {
     case JSON_TRUE:
         return true;
     case JSON_NUMBER:
-         return json_double(json) != 0.0; 
+         return json_int64(json) != 0;
     case JSON_STRING: {
         char *trues[] = { "1", "t", "T", "true", "TRUE", "True" };
         for (size_t i = 0; i < sizeof(trues)/sizeof(char*); i++) {
@@ -1004,7 +964,7 @@ struct json json_getn(const char *json_str, size_t len, const char *path) {
         } else if (type == JSON_ARRAY) {
             if (klen == 0) { i = 0; break; }
             char *end;
-            size_t index = strtol(key, &end, 10);
+            size_t index = simple_strtoul(key, &end, 10);
             if (*end && *end != '.') { i = 0; break; }
             json = json_array_get(json, index);
         } else {
