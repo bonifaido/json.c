@@ -791,7 +791,7 @@ static int64_t parse_int64(const uint8_t *s, size_t len) {
         buf[len] = '\0';
         int64_t x = 0;
         int retval = kstrtos64(buf, 10, &x);
-        if (retval == 0) return INT64_MIN;
+        if (retval != 0) return INT64_MIN;
         return x;
     }
     return INT64_MIN;
@@ -807,7 +807,7 @@ static uint64_t parse_uint64(const uint8_t *s, size_t len) {
         buf[len] = '\0';
         uint64_t x = 0;
         int retval = kstrtou64(buf, 10, &x);
-        if (retval == 0) return UINT64_MAX;
+        if (retval != 0) return UINT64_MAX;
         return x;
     }
     return UINT64_MAX;
