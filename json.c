@@ -85,8 +85,9 @@ static inline int64_t vesc(const uint8_t *json, int64_t jlen, int64_t i) {
     switch (json[i]) {
     case '"': case '\\': case '/': case 'b': case 'f': case 'n': 
     case 'r': case 't': return i+1;
-    case 'u':
-        for (int j = 0; j < 4; j++) {
+    case 'u': {
+        int j;
+        for (j = 0; j < 4; j++) {
             i++;
             if (i == jlen) return -(i+1);
             if (!((json[i] >= '0' && json[i] <= '9') ||
@@ -94,6 +95,7 @@ static inline int64_t vesc(const uint8_t *json, int64_t jlen, int64_t i) {
                   (json[i] >= 'A' && json[i] <= 'F'))) return -(i+1);
         }
         return i+1;
+    }
     }
     return -(i+1);
 }
@@ -611,7 +613,8 @@ static inline int encode_codepoint(uint8_t dst[], uint32_t cp) {
     size_t nn = (len); \
     int ch = 0; \
     (void)ch; \
-    for (size_t ii = 0; ii < nn; ii++) { \
+    size_t ii; \
+    for (ii = 0; ii < nn; ii++) { \
         if ((jstr)[ii] != '\\') { \
             ch = (jstr)[ii]; \
             if (1) f \
@@ -640,7 +643,8 @@ static inline int encode_codepoint(uint8_t dst[], uint32_t cp) {
             } \
             uint8_t _bytes[4]; \
             int _n = encode_codepoint(_bytes, cp); \
-            for (int _j = 0; _j < _n; _j++) { \
+            int _j; \
+            for (_j = 0; _j < _n; _j++) { \
                 ch = _bytes[_j]; \
                 if (1) f \
             } \
@@ -856,7 +860,8 @@ JSON_EXTERN bool json_bool(struct json json) {
          return json_int64(json) != 0;
     case JSON_STRING: {
         char *trues[] = { "1", "t", "T", "true", "TRUE", "True" };
-        for (size_t i = 0; i < sizeof(trues)/sizeof(char*); i++) {
+        size_t i;
+        for (i = 0; i < sizeof(trues)/sizeof(char*); i++) {
             if (json_string_compare(json, trues[i]) == 0) return true;
         }
         return false;
@@ -898,7 +903,8 @@ size_t json_escapen(const char *str, size_t len, char *esc, size_t n) {
     uint8_t cpbuf[4];
     struct jesc_buf buf  = { .esc = (uint8_t*)esc, .esclen = n };
     jesc_append(&buf, '"');
-    for (size_t i = 0; i < len; i++) {
+    size_t i;
+    for (i = 0; i < len; i++) {
         uint32_t c = (uint8_t)str[i];
         if (c < ' ') {
             switch (c) {
@@ -923,7 +929,8 @@ size_t json_escapen(const char *str, size_t len, char *esc, size_t n) {
                 res.cp = 0xfffd;
             }
             int cpn = encode_codepoint(cpbuf, res.cp);
-            for (int j = 0; j < cpn; j++) {
+            int j = 0;
+            for (j = 0; j < cpn; j++) {
                 jesc_append(&buf, cpbuf[j]);
             }
             i = i + res.n - 1;
@@ -980,5 +987,5 @@ JSON_EXTERN struct json json_get(const char *json_str, const char *path) {
 }
 
 JSON_EXTERN bool json_string_is_escaped(struct json json) {
-    return (jinfo(json)&IESC) == IESC;
+    return ((jinfo(json)&IESC) == IESC);
 }
